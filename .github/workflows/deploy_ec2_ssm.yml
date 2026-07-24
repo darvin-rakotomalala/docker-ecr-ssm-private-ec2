@@ -1,0 +1,65 @@
+name: Deploy securely to EC2 via SSM
+on:
+  push:
+    branches: [main]
+permissions:
+  id-token: write
+  contents: read
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: 123456789012.dkr.ecr.us-east-1.amazonaws.com
+  ECR_REPOSITORY: my-app
+  IMAGE_TAG: ${{ github.sha }}
+  INSTANCE_ID: i-0abc123def456789a
+
+jobs:
+  # Build and test jobs omitted - covered in previous article
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: [build, test]
+    steps:
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::123456789012:role/GitHubActionsDeployRole
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Deploy Docker container via SSM
+        id: ssm-deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}",
+              "docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}",
+              "docker stop my-app || true",
+              "docker rm my-app || true",
+              "docker run -d --name my-app --restart unless-stopped -p 80:8080 ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}",
+              "sleep 5",
+              "docker ps --filter name=my-app --format \"{{.Status}}\""
+            ]' \
+            --timeout-seconds 120 \
+            --comment "Deploy ${{ env.IMAGE_TAG }}" \
+            --query "Command.CommandId" \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+      - name: Wait for deployment to complete
+        run: |
+          aws ssm wait command-executed \
+            --command-id ${{ steps.ssm-deploy.outputs.command_id }} \
+            --instance-id ${{ env.INSTANCE_ID }}
+      - name: Verify deployment result
+        run: |
+          RESULT=$(aws ssm get-command-invocation \
+            --command-id ${{ steps.ssm-deploy.outputs.command_id }} \
+            --instance-id ${{ env.INSTANCE_ID }} \
+            --query "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}" \
+            --output json)
+          echo "$RESULT" | jq .
+          STATUS=$(echo "$RESULT" | jq -r '.Status')
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::Deployment failed with status: $STATUS"
+            exit 1
+          fi
+          echo "Deployment succeeded."
