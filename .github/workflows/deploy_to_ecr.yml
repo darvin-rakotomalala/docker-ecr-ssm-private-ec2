@@ -1,6 +1,7 @@
 name: Build and Deploy to ECR
 
 on:
+  workflow_dispatch: # This enables the "Run workflow" button
   push:
     branches: [ main ]
     paths:
