@@ -28,6 +28,11 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Debug OIDC context
+        run: |
+          echo "Role ARN: $AWS_ROLE_ARN"
+          echo "Region: $AWS_REGION"
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
