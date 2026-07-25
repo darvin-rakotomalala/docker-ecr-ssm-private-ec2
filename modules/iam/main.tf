@@ -9,7 +9,7 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
 }
 
 resource "aws_iam_role" "terraform_execution" {
-  name = "${var.naming_prefix}-github-actions-deploy-role"
+  name = "${var.naming_prefix}-github-actions-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -26,7 +26,6 @@ resource "aws_iam_role" "terraform_execution" {
           }
           StringLike = {
             "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:*"
-            # "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_ORG/YOUR_GITHUB_REPO:ref:refs/heads/YOUR_GITHUB_BRANCH"
           }
         }
       }
