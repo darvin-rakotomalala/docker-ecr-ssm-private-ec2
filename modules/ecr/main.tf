@@ -15,6 +15,8 @@ resource "aws_ecr_repository" "app" {
     encryption_type = "AES256" # Or "KMS" for customer-managed keys
   }
 
+  force_delete = true
+
   tags = merge(var.common_tags, {
     Name = "${var.naming_prefix}-${var.repository_name}"
   })
