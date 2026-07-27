@@ -41,6 +41,8 @@ ECR gave the team a predictable, AWS-native solution where the images “just wo
 * **Security groups** for EC2 and VPC endpoints
 * **GitHub repository** with Actions enabled
 
+![docker-ecr-ssm-private-ec2.png](docker-ecr-ssm-private-ec2.png)
+
 ### Why SSM Is More Secure Than SSH
 
 ***
@@ -138,7 +140,8 @@ docker-ecr-ssm-private-ec2/
   instances
 * **iam** — EC2 instances need an IAM role that allows the SSM agent to communicate with the Systems Manager service
   securely
-* **ec2** — EC2 Instance with NO public IP, NO SSH key, NO inbound port 22
+* **ec2** — EC2 Instance with NO public IP, NO SSH key, NO inbound port 22, with user_data to install Docker and AWS CLI
+  v2.
 
 **Step 3: Outputs**
 
@@ -151,10 +154,8 @@ After successful deployment, the following outputs will be available:
 - ```iam_role_terraform_execution_arn``` — IAM role terraform execution ARN
 - ```ec2_instance_id``` — Instance ID of EC2-SSM-SERVER (use this to start an SSM session)
 - ```ec2_instance_private_ip``` — Private IP address of the EC2 instance
+- ```ec2_instance_private_ip``` — Public IP address of the EC2 instance
 - ```ssm_connect_command``` — AWS CLI command to open a Session Manager shell on the instance
-- ```ec2_instance_id``` — 
-- ```ec2_instance_private_ip``` — 
-- ```ssm_connect_command``` — 
 
 **Step 4: Deployment Workflow**
 
@@ -166,13 +167,6 @@ After successful deployment, the following outputs will be available:
   ```aws ssm send-command``` is asynchronous. It returns a Command ID immediately. You then use
   ```aws ssm wait command-executed``` to block until execution finishes, and ```aws ssm get-command-invocation``` to
   retrieve the output and exit status.
-
-Each push to the main branch triggered:
-
-* Docker build
-* Image tagging
-* ECR authentication
-* Automatic push to AWS
 
 ### Quick Start
 
@@ -211,7 +205,19 @@ Each push to the main branch triggered:
 You can check the full documentation for **technical specifications** in ```Documentation``` directory and all
 screenshot in ```Screenshot verification```.
 
-- **Check the SSM endpoints**
+- **Outputs**
+
+![1-Outputs.png](Screenshot%20verification/1-Outputs.png)
+
+- **AWS ECR Repositories**
+
+![2-ECR Repository.png](Screenshot%20verification/2-ECR%20Repository.png)
+
+![3-ECR Image.png](Screenshot%20verification/3-ECR%20Image.png)
+
+- **AWS EC2 Instance in private subnet**
+
+![4-EC2 Instance.png](Screenshot%20verification/4-EC2%20Instance.png)
 
 - **Verifying the Deployment**
 
@@ -229,6 +235,8 @@ aws ssm start-session --target i-0ff5f380fc92b4e23
 You can also verify in CloudTrail. Search for the ```SendCommand``` event — it logs the IAM role ARN
 (```ce-dev-github-actions-deploy-role```), the instance ID, the document name, and the command parameters. This is your
 complete audit trail.
+
+![5-Check docker image pulled.png](Screenshot%20verification/5-Check%20docker%20image%20pulled.png)
 
 ### Common Issues & Fixes
 
@@ -282,7 +290,7 @@ To destroy all resources, run ```terraform destroy -var-file="terraform.tfvars" 
 
 SSM Session Manager and SendCommand have no additional charge — you pay only for the EC2 instance and data transfer
 you're already using. If you set up VPC endpoints for private subnets, those cost
-approximately $0.01/GB processed plus ~$7.20/month per endpoint per AZ.
+approximately 0.01/GB processed plus $7.20/month per endpoint per AZ.
 
 For a tighter security posture: enable SSM Session Manager logging to an S3 bucket and CloudWatch Logs group. This
 captures full session output, not just API-level events. Combine this with an SCP or IAM boundary that denies

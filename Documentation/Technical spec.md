@@ -21,6 +21,8 @@ credentials stored as secrets.
 * **Security groups** for EC2 and VPC endpoints
 * **GitHub repository** with Actions enabled
 
+![docker-ecr-ssm-private-ec2.png](../docker-ecr-ssm-private-ec2.png)
+
 ### Implementation with Terraform
 
 ***
@@ -89,54 +91,56 @@ env:
 * Attach on VPC and private subnet
 * Attach Security groups (SSM-SG)
 * Attach IAM Role: SSM-EC2-Role. This ensures SSM has the necessary permissions.
-* Add User data below. This script installs and starts the SSM agent, on your instance:
-  ```
-  user_data = <<-EOF
-    #!/bin/bash
-    set -ex
-
-    # Redirect output to a log file for troubleshooting
-    exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>&1)
-
-    # -----------------------------------------------------------------
-    # 1. AWS SSM Agent Configuration
-    # -----------------------------------------------------------------
-    # Ubuntu 24.04 AMI (Canonical) usually comes with SSM pre-installed,
-    # but ensuring it's running and enabled:
-    sudo systemctl enable amazon-ssm-agent
-    sudo systemctl start amazon-ssm-agent
-
-    # -----------------------------------------------------------------
-    # 2. Docker Installation (Official Canonical/Docker Repository)
-    # -----------------------------------------------------------------
-    # Update package index and install prerequisites
-    apt-get update -y
-    apt-get install -y ca-certificates curl gnupg
-
-    # Add Docker's official GPG key
-    install -m 0755 -d /etc/apt/keyrings
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-    chmod a+r /etc/apt/keyrings/docker.gpg
-
-    # Set up the stable Docker repository
-    echo \
-      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  * Add User data below. This script installs and starts the SSM agent, on your instance:
+    ```
+    user_data = <<-EOF
+      #!/bin/bash
+      set -eux
+      # Log everything to a file for debugging via SSM
+      exec > >(tee /var/log/user-data.log) 2>&1
+    
+      echo "### Updating packages ###"
+      apt-get update -y
+      apt-get upgrade -y
+    
+      echo "### Installing prerequisites ###"
+      apt-get install -y ca-certificates curl gnupg lsb-release unzip
+    
+      echo "### Installing AWS CLI v2 ###"
+      curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+      unzip -o /tmp/awscliv2.zip -d /tmp
+      /tmp/aws/install
+      rm -rf /tmp/aws /tmp/awscliv2.zip
+      aws --version
+    
+      echo "### Adding Docker GPG key ###"
+      install -m 0755 -d /etc/apt/keyrings
+      curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+      chmod a+r /etc/apt/keyrings/docker.asc
+    
+      echo "### Adding Docker repository ###"
+      echo \
+      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
       $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
       tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-    # Install Docker Engine and associated plugins
-    apt-get update -y
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-
-    # Enable and start Docker service
-    systemctl enable docker
-    systemctl start docker
-
-    # Optional: If you plan to run container commands without root via SSM later,
-    # add the default ubuntu user to the docker group (uncomment if needed):
-    usermod -aG docker ubuntu
-  EOF
-  ``` 
+    
+      echo "### Installing Docker Engine ###"
+      apt-get update -y
+      apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    
+      echo "### Enabling Docker service ###"
+      systemctl enable docker
+      systemctl start docker
+    
+      echo "### Adding ubuntu user to docker group ###"
+      usermod -aG docker ubuntu
+    
+      echo "### Docker installation complete ###"
+      docker --version
+    
+      echo "### User-data setup fully complete ###"
+    EOF
+    ``` 
 
 **Step 9 - GitHub Actions workflow to deploy Docker to private EC2 Securely with GitHub Actions and AWS SSM**
 
