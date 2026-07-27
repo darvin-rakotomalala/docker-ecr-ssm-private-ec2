@@ -23,7 +23,6 @@ output "push_commands_full" {
   value       = module.ecr.push_commands_full
 }
 
-/*
 output "ec2_instance_id" {
   description = "Instance ID of EC2-SSM-SERVER (use this to start an SSM session)"
   value       = module.ec2.ec2_instance_id
@@ -34,8 +33,12 @@ output "ec2_instance_private_ip" {
   value       = module.ec2.ec2_instance_private_ip
 }
 
+output "ec2_instance_public_ip" {
+  description = "Public IP address of the EC2 instance"
+  value       = module.ec2.ec2_instance_public_ip
+}
+
 output "ssm_connect_command" {
   description = "AWS CLI command to open a Session Manager shell on the instance"
   value       = "aws ssm start-session --target ${module.ec2.ec2_instance_id} --region ${var.primary_region}"
 }
-*/

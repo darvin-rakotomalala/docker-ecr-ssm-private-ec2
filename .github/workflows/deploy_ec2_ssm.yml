@@ -1,0 +1,91 @@
+name: Deploy securely to EC2 via SSM
+
+# Event that triggers the workflow
+on:
+  push:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - 'TFplan.JSON'
+      - 'AWS services study note/**'
+      - 'Documentation/**'
+      - 'Screenshot verification/**'
+  pull_request:
+    branches: [ main ]
+    paths-ignore:
+      - '**.md'
+      - '**.jpg'
+      - 'TFplan.JSON'
+      - 'AWS services study note/**'
+      - 'Documentation/**'
+      - 'Screenshot verification/**'
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+  IMAGE_TAG: latest
+  INSTANCE_ID: ${{ vars.INSTANCE_ID }}
+
+permissions:
+  id-token: write       # Required for requesting the OIDC JWT
+  contents: read        # Required for actions/checkout
+  pull-requests: write  # Required for plan comments
+  issues: write
+
+jobs:
+  # Build and test jobs omitted - covered in previous article
+  deploy:
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: [build, test]
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v6.1.0
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy Docker container via SSM
+        id: ssm-deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --parameters 'commands=[
+              "aws ecr get-login-password --region ${{ env.AWS_REGION }} | docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}",
+              "docker pull ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}",
+              "docker stop ${{ env.ECR_REPOSITORY }} || true",
+              "docker rm ${{ env.ECR_REPOSITORY }} || true",
+              "docker run -d --name ${{ env.ECR_REPOSITORY }} --restart unless-stopped -p 80:8080 ${{ env.ECR_REGISTRY }}/${{ env.ECR_REPOSITORY }}:${{ env.IMAGE_TAG }}",
+              "sleep 5",
+              "docker ps --filter name=${{ env.ECR_REPOSITORY }} --format \"{{.Status}}\""
+            ]' \
+            --timeout-seconds 120 \
+            --comment "Deploy ${{ env.IMAGE_TAG }}" \
+            --query "Command.CommandId" \
+            --output text)
+          echo "command_id=$COMMAND_ID" >> $GITHUB_OUTPUT
+
+      - name: Wait for deployment to complete
+        run: |
+          aws ssm wait command-executed \
+            --command-id ${{ steps.ssm-deploy.outputs.command_id }} \
+            --instance-id ${{ env.INSTANCE_ID }}
+
+      - name: Verify deployment result
+        run: |
+          RESULT=$(aws ssm get-command-invocation \
+            --command-id ${{ steps.ssm-deploy.outputs.command_id }} \
+            --instance-id ${{ env.INSTANCE_ID }} \
+            --query "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}" \
+            --output json)
+          echo "$RESULT" | jq .
+          STATUS=$(echo "$RESULT" | jq -r '.Status')
+          if [ "$STATUS" != "Success" ]; then
+            echo "::error::Deployment failed with status: $STATUS"
+            exit 1
+          fi
+          echo "Deployment succeeded."

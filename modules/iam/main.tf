@@ -25,7 +25,7 @@ resource "aws_iam_role" "terraform_execution" {
             "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com"
           }
           StringLike = {
-            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}/${var.github_repo}:*"
+            "token.actions.githubusercontent.com:sub" = "repo:${var.github_org}*/${var.github_repo}*:*"
           }
         }
       }
@@ -48,7 +48,6 @@ resource "aws_iam_role_policy_attachment" "terraform_execution_admin" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess" # Scope down in production. Specific permissions for specific resources
 }
 
-/*
 resource "aws_iam_role_policy" "ssm_send_command" {
   name = "${var.naming_prefix}-ssm-send-command-policy"
   role = aws_iam_role.terraform_execution.id
@@ -83,6 +82,7 @@ resource "aws_iam_role_policy" "ssm_send_command" {
       }
     ]
   })
+  depends_on = [var.target_instance_id]
 }
 
 ############################################
@@ -127,4 +127,3 @@ resource "aws_iam_instance_profile" "ssm_ec2_profile" {
   name = "${var.naming_prefix}-EC2DockerDeployRole-Profile"
   role = aws_iam_role.ssm_ec2_role.name
 }
-*/

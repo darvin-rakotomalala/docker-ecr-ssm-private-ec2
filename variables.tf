@@ -50,10 +50,14 @@ variable "repository_name" {
   type        = string
 }
 
-/*
 # ─── VPC ───────────────────────────────────────────────────────────────────────
 variable "vpc_cidr" {
   description = "CIDR block for the VPC"
+  type        = string
+}
+
+variable "public_subnet_cidr" {
+  description = "CIDR block for the single public subnet"
   type        = string
 }
 
@@ -67,4 +71,3 @@ variable "instance_type" {
   description = "EC2 instance type for the SSM-managed server"
   type        = string
 }
-*/

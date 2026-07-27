@@ -4,13 +4,8 @@ on:
   workflow_dispatch: # This enables the "Run workflow" button
   push:
     branches: [ main ]
-    paths-ignore:
-      - '**.md'
-      - '**.jpg'
-      - 'TFplan.JSON'
-      - 'AWS services study note/**'
-      - 'Documentation/**'
-      - 'Screenshot verification/**'
+    paths:
+      - 'webfiles/**'
 
 env:
   AWS_REGION: ${{ vars.AWS_REGION }}

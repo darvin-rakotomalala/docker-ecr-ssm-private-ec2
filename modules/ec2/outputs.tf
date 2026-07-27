@@ -7,6 +7,16 @@ output "ec2_instance_id" {
   value       = aws_instance.ssm_server.id
 }
 
+output "target_instance_id" {
+  description = "Instance ID of EC2-SSM-SERVER (use this to start an SSM session)"
+  value       = aws_instance.ssm_server.id
+}
+
+output "ec2_instance_public_ip" {
+  description = "Public IP address of the EC2 instance"
+  value       = aws_instance.ssm_server.public_ip
+}
+
 output "ec2_instance_private_ip" {
   description = "Private IP address of the EC2 instance"
   value       = aws_instance.ssm_server.private_ip

@@ -152,6 +152,9 @@ After successful deployment, the following outputs will be available:
 - ```ec2_instance_id``` — Instance ID of EC2-SSM-SERVER (use this to start an SSM session)
 - ```ec2_instance_private_ip``` — Private IP address of the EC2 instance
 - ```ssm_connect_command``` — AWS CLI command to open a Session Manager shell on the instance
+- ```ec2_instance_id``` — 
+- ```ec2_instance_private_ip``` — 
+- ```ssm_connect_command``` — 
 
 **Step 4: Deployment Workflow**
 
@@ -220,11 +223,7 @@ needed):
 # https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html
 
 # Start session
-aws ssm start-session --target i-0abc123def456789a
-
-# Once connected:
-docker ps
-docker logs my-app --tail 20
+aws ssm start-session --target i-0ff5f380fc92b4e23
 ```
 
 You can also verify in CloudTrail. Search for the ```SendCommand``` event — it logs the IAM role ARN

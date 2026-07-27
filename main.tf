@@ -34,10 +34,10 @@ module "iam" {
   github_org         = var.github_org
   github_repo        = var.github_repo
   primary_region     = var.primary_region
-  # ec2_instance_id    = ""
+  ec2_instance_id    = module.ec2.ec2_instance_id
+  target_instance_id = module.ec2.target_instance_id
 }
 
-/*
 #########################################################
 ## VPC
 #########################################################
@@ -51,6 +51,7 @@ module "vpc" {
   ssm_security_group_id   = [module.security-groups.ssm_security_group_id]
   data_az_available_names = data.aws_availability_zones.available.names[0]
   private_subnet_cidr     = var.private_subnet_cidr
+  public_subnet_cidr      = var.public_subnet_cidr
 }
 
 #########################################################
@@ -81,4 +82,3 @@ module "ec2" {
   vpc_endpoint_ssmmessages      = module.vpc.vpc_endpoint_ssmmessages
   vpc_endpoint_ec2messages      = module.vpc.vpc_endpoint_ec2messages
 }
-*/

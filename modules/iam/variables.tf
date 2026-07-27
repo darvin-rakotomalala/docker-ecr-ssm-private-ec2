@@ -25,7 +25,12 @@ variable "github_repo" {
   type        = string
 }
 
-# variable "ec2_instance_id" {
-#   description = "Instance ID of EC2-SSM-SERVER (use this to start an SSM session)"
-#   type        = string
-# }
+variable "ec2_instance_id" {
+  description = "Instance ID of EC2-SSM-SERVER (use this to start an SSM session)"
+  type        = string
+}
+
+variable "target_instance_id" {
+  description = "Instance ID of EC2-SSM-SERVER (use this to start an SSM session)"
+  type        = string
+}
