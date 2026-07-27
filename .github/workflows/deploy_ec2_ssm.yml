@@ -38,9 +38,9 @@ permissions:
 jobs:
   # Build and test jobs omitted - covered in previous article
   deploy:
+    name: ecr-ec2
     runs-on: ubuntu-latest
     environment: dev
-    needs: [build, test]
     steps:
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v6.1.0
