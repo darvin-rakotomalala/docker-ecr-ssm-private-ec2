@@ -2,6 +2,7 @@ name: Deploy securely to EC2 via SSM
 
 # Event that triggers the workflow
 on:
+  workflow_dispatch: # This enables the "Run workflow" button
   push:
     branches: [ main ]
     paths-ignore:
