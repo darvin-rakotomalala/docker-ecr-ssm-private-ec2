@@ -11,6 +11,44 @@ This project demonstrate how to replace all of that with AWS Systems Manager (SS
 ports. No SSH keys. Full command audit logging in CloudTrail. And we authenticate GitHub Actions to AWS using OpenID
 Connect (OIDC) — meaning zero long-lived AWS credentials stored as secrets.
 
+### Business Problem
+
+***
+
+In modern CI/CD pipelines, automated deployments to EC2 instances typically rely on traditional SSH connections. This
+legacy approach forces organizations to accept severe operational and security compromises to achieve continuous
+deployment:
+
+- **High Attack Surface**: Opening inbound port 22 on EC2 instances leaves systems continuously exposed to port
+  scanning, brute-force attacks, and network-level exploitation.
+- **Secrets Vulnerability & Long-Lived Credentials**: Storing persistent SSH private keys or long-lived AWS IAM access
+  keys inside CI/CD platforms (like GitHub Secrets) creates significant risk. If a key leaks, unauthorized actors gain
+  direct shell access or AWS environment control.
+- **Compliance & Audit Deficits**: Standard SSH access lacks native, centralized logging of executed commands, making it
+  extremely difficult for security teams to maintain compliance standards or trace actions during an incident.
+
+### The Challenge
+
+***
+
+The core challenge of this project was to completely redesign the deployment pipeline to achieve zero trust
+automation—deploying Docker containers to a private EC2 instance without compromising security or operational
+visibility.
+
+To solve this, the project had to meet several strict constraints:
+
+- **Zero Inbound Port Exposure**: Eliminate port 22 entirely by isolating the EC2 instance in a private subnet with no
+  public IP address and no inbound security group rules.
+- **Passwordless & Keyless Authentication**: Authenticate GitHub Actions to AWS without storing long-lived AWS
+  credentials, using OpenID Connect (OIDC) for short-lived, scoped access.
+- **Agent-Based Inbound-Free Execution**: Shift execution mechanics from SSH push commands to outbound agent
+  communication using AWS Systems Manager (SSM) Session Manager and VPC Endpoints.
+- **Asynchronous Workflow Synchronization**: Handle SSM ```SendCommand``` natively in GitHub Actions, which executes
+  asynchronously. The pipeline must poll for completion (```aws ssm wait command-executed```) and capture exit
+  statuses/logs to ensure reliable CI/CD deployment feedback.
+- **Full Auditability**: Ensure every deployment command and action executed on the target instance is automatically
+  recorded in AWS CloudTrail for enterprise-grade auditing.
+
 ### Why AWS Elastic Container Registry (ECR) Made Sense
 
 ***
@@ -93,29 +131,29 @@ docker-ecr-ssm-private-ec2/
 ├── Documentation                   # Documentation of this project
 └── modules/
     └── bootstrap/                  # Backend for Terraform state file
-          ├── main.tf            
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf            
+        ├── outputs.tf
+        └── variables.tf
     └── ec2/                        # EC2 Instance server
-          ├── main.tf            
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf            
+        ├── outputs.tf
+        └── variables.tf
     └── ecr/                        # ECR repository where Docker image is pushed
-          ├── main.tf            
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf            
+        ├── outputs.tf
+        └── variables.tf
     └── iam/                        # IAM for Role and permission
-          ├── main.tf               
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf               
+        ├── outputs.tf
+        └── variables.tf
     └── security-groups/            # Security groups
-          ├── main.tf                
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf                
+        ├── outputs.tf
+        └── variables.tf
     └── vpc/                        # VPC for networking
-          ├── main.tf
-          ├── outputs.tf
-          └── variables.tf
+        ├── main.tf
+        ├── outputs.tf
+        └── variables.tf
    ├── Screenshot verification      # Screenshot verification after success deployment
    ├── .gitignore                   # gitignore
    ├── backend.tf                   # Backend configuration for Terraform state file
@@ -289,8 +327,8 @@ To destroy all resources, run ```terraform destroy -var-file="terraform.tfvars" 
 ***
 
 SSM Session Manager and SendCommand have no additional charge — you pay only for the EC2 instance and data transfer
-you're already using. If you set up VPC endpoints for private subnets, those cost
-approximately 0.01/GB processed plus $7.20/month per endpoint per AZ.
+you're already using. If you set up VPC endpoints for private subnets, those cost approximately 0.01/GB processed plus $
+7.20/month per endpoint per AZ.
 
 For a tighter security posture: enable SSM Session Manager logging to an S3 bucket and CloudWatch Logs group. This
 captures full session output, not just API-level events. Combine this with an SCP or IAM boundary that denies
